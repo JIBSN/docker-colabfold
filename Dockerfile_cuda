@@ -1,0 +1,34 @@
+# ===== CUDA 12.2 runtime =====
+ARG CUDA_VERSION=12.2.0
+FROM nvidia/cuda:${CUDA_VERSION}-runtime-ubuntu22.04
+
+# ===== environments =====
+ENV DEBIAN_FRONTEND=noninteractive \
+    PATH=/opt/conda/bin:$PATH \
+    MPLBACKEND=Agg \
+    MPLCONFIGDIR=/cache \
+    XDG_CACHE_HOME=/cache
+
+# ===== install mambaforge =====
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    wget git curl ca-certificates build-essential \
+ && rm -rf /var/lib/apt/lists/*
+RUN wget -qO /tmp/mambaforge.sh https://github.com/conda-forge/miniforge/releases/download/25.3.0-3/Miniforge3-25.3.0-3-Linux-x86_64.sh \
+ && bash /tmp/mambaforge.sh -b -p /opt/conda \
+ && rm /tmp/mambaforge.sh \
+ && conda config --set always_yes true
+
+# ===== create a conda env =====
+RUN mamba create -n colabfold python==3.10 \
+ && mamba clean -afy
+
+# ===== Install ColabFold from source =====
+ARG COLABFOLD_GIT_REF=main
+RUN conda run -n colabfold bash -c "\
+    pip install git+https://github.com/sokrypton/ColabFold.git@${COLABFOLD_GIT_REF} \
+    && pip install alphafold-colabfold \
+    && pip install 'jax[cuda12_local]==0.5.3' \
+"
+ENV PATH=/opt/conda/envs/colabfold/bin:$PATH
+VOLUME ["/cache"]
+CMD ["bash"]
